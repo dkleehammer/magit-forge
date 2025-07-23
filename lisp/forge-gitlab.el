@@ -578,6 +578,24 @@
                             (or (mapcar (##caddr (assoc % users)) reviewers)
                                 0))))
 
+(cl-defmethod forge--submit-approve-pullreq
+  ((_repo forge-gitlab-repository)
+   (topic forge-pullreq))
+  (forge--glab-post topic
+    "/projects/:project/merge_requests/:number/approve"
+    nil
+    :callback  (forge--post-submit-callback)
+    :errorback (forge--post-submit-errorback)))
+
+(cl-defmethod forge--submit-request-changes
+  ((_repo forge-gitlab-repository)
+   (topic forge-pullreq))
+  (forge--glab-post topic
+    "/projects/:project/merge_requests/:number/unapprove"
+    nil
+    :callback  (forge--post-submit-callback)
+    :errorback (forge--post-submit-errorback)))
+
 (cl-defmethod forge--delete-comment
   ((_    forge-gitlab-repository)
    (post forge-post))

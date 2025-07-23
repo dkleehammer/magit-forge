@@ -712,9 +712,11 @@ point is currently on."
   :inapt-if-not #'forge-current-pullreq
   :transient nil
   (interactive)
-  (let ((pullreq (forge-current-pullreq t)))
-    (unless (forge-github-repository-p (forge-get-repository pullreq))
-      (user-error "This command is only available for Github"))
+  (let* ((pullreq (forge-current-pullreq t))
+         (repo (forge-get-repository pullreq)))
+    (unless (or (forge-github-repository-p repo)
+                (forge-gitlab-repository-p repo))
+      (user-error "This command is only available for GitHub and GitLab"))
     (forge--setup-post-buffer pullreq #'forge--submit-approve-pullreq
       "%i;new-approval" "Approve pull-request #%i of %p")))
 
@@ -724,9 +726,11 @@ point is currently on."
   :inapt-if-not #'forge-current-pullreq
   :transient nil
   (interactive)
-  (let ((pullreq (forge-current-pullreq t)))
-    (unless (forge-github-repository-p (forge-get-repository pullreq))
-      (user-error "This command is only available for Github"))
+  (let* ((pullreq (forge-current-pullreq t))
+         (repo (forge-get-repository pullreq)))
+    (unless (or (forge-github-repository-p repo)
+                (forge-gitlab-repository-p repo))
+      (user-error "This command is only available for GitHub and GitLab"))
     (forge--setup-post-buffer pullreq #'forge--submit-request-changes
       "%i;new-request" "Request changes for pull-request #%i of %p")))
 

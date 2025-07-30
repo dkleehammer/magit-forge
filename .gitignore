@@ -11,3 +11,5 @@
 /lisp/*.elc
 
 /docs/forge/
+
+tmp/

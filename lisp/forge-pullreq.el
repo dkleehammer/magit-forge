@@ -71,6 +71,7 @@
    (base-rev             :initarg :base-rev)
    (head-rev             :initarg :head-rev)
    (draft-p              :initarg :draft-p)
+   (remove-source-branch :initarg :remove-source-branch :initform nil)
    (their-id             :initarg :their-id)
    (slug                 :initarg :slug)
    (saved-p              :initarg :saved-p :initform nil)

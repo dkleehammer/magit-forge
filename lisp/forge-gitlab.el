@@ -332,6 +332,7 @@
                :head-user    .source_project.owner.username
                :head-repo    .source_project.path_with_namespace
                :milestone    .milestone.iid
+               :remove-source-branch (or .should_remove_source_branch .force_remove_source_branch)
                :body         (forge--sanitize-string .description))))
         (closql-insert (forge-db) pullreq t)
         (unless (magit-get-boolean "forge.omitExpensive")
@@ -472,6 +473,7 @@
         (target_project_id . ,(oref base-repo forge-id))
         (target_branch . ,base-branch)
         (source_branch . ,head-branch)
+        (remove_source_branch . ,(or forge--buffer-remove-source-branch :json-false))
         (allow_collaboration . t))
       :callback  (forge--post-submit-callback)
       :errorback (forge--post-submit-errorback))))
@@ -577,6 +579,12 @@
     (forge--set-topic-field repo topic 'reviewer_ids
                             (or (mapcar (##caddr (assoc % users)) reviewers)
                                 0))))
+
+(cl-defmethod forge--set-topic-remove-source-branch
+  ((repo  forge-gitlab-repository)
+   (topic forge-pullreq)
+   value)
+  (forge--set-topic-field repo topic 'remove_source_branch value))
 
 (cl-defmethod forge--submit-approve-pullreq
   ((_repo forge-gitlab-repository)

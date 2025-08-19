@@ -915,8 +915,20 @@ can be selected from the start."
 
 (defun forge--format-topic-slug (topic)
   (with-slots (slug state status saved-p) topic
+    ;; Regenerate slug if missing
+    (when (not slug)
+      (let ((repo (ignore-errors (forge-get-repository topic))))
+        (when repo
+          (setf slug (format "%s%s"
+                           (if (forge-gitlab-repository-p repo) "!" "#")
+                           (oref topic number)))
+          ;; Persist the regenerated slug to database
+          (ignore-errors
+            (forge-sql [:update ,(oref topic closql-table)
+                        :set (= slug $s1) :where (= id $s2)]
+                       slug (oref topic id))))))
     (magit--propertize-face
-     slug
+     (or slug "???")  ; Final fallback
      `(,@(and saved-p               '(forge-topic-slug-saved))
        ,@(and (eq status 'unread)   '(forge-topic-slug-unread))
        ,(pcase state
@@ -1090,6 +1102,17 @@ can be selected from the start."
 (defun forge--format-topic-review-requests (topic)
   (and$ (oref topic review-requests)
         (mapconcat #'forge--format-person $ ", ")))
+
+(defun forge--format-topic-remove-source-branch (topic)
+  ;; Only show this for GitLab pull requests that have the field
+  (when (and (forge-pullreq-p topic)
+             (slot-exists-p topic 'remove-source-branch))
+    (let ((repo (ignore-errors (forge-get-repository topic))))
+      (when (and repo (forge-gitlab-repository-p repo))
+        (if (and (slot-boundp topic 'remove-source-branch)
+                 (oref topic remove-source-branch))
+            (magit--propertize-face "yes" 'bold)
+          (magit--propertize-face "no" 'magit-dimmed))))))
 
 (defun forge--format-person (person)
   (pcase-let* ((`(,_id ,login ,name) person)
@@ -1314,7 +1337,8 @@ This mode itself is never used directly."
     forge-insert-topic-labels
     forge-insert-topic-marks
     forge-insert-topic-assignees
-    forge-insert-topic-review-requests))
+    forge-insert-topic-review-requests
+    forge-insert-topic-remove-source-branch))
 
 (defvar-local forge-buffer-topic nil)
 
@@ -1498,6 +1522,9 @@ This mode itself is never used directly."
 (forge--define-topic-header review-requests
   :format #'forge--format-topic-review-requests)
 
+(forge--define-topic-header remove-source-branch
+  :format #'forge--format-topic-remove-source-branch)
+
 ;;; Commands
 ;;;; Groups
 
@@ -1597,6 +1624,7 @@ This mode itself is never used directly."
     ("-x" forge-topic-set-marks)
     ("-a" forge-topic-set-assignees)
     ("-r" forge-topic-set-review-requests)
+    ("-D" forge-topic-set-remove-source-branch)
     ("-n" forge-edit-topic-note)
     ("-t" forge-topic-set-title)]
    ["Set"
@@ -1861,6 +1889,20 @@ inferior process."
   "Edit the REVIEW-REQUESTS of the current pull-request."
   :class 'forge--topic-set-slot-command :slot 'review-requests
   :inapt-if-not #'forge-current-pullreq)
+
+(transient-define-suffix forge-topic-set-remove-source-branch (remove-source-branch)
+  "Toggle whether to delete the source branch when the pull-request is merged."
+  :class 'forge--topic-set-slot-command :slot 'remove-source-branch
+  :inapt-if-not #'forge-current-pullreq
+  :reader (lambda (topic)
+            (not (and (slot-exists-p topic 'remove-source-branch)
+                      (slot-boundp topic 'remove-source-branch)
+                      (oref topic remove-source-branch))))
+  :if (lambda ()
+        (and (forge-current-pullreq)
+             (let ((repo (ignore-errors (forge-get-repository (forge-current-pullreq)))))
+               (and repo (forge-gitlab-repository-p repo)))))
+  :description (##forge--format-boolean 'remove-source-branch "delete source branch"))
 
 (transient-define-suffix forge-topic-toggle-draft (draft)
   "Toggle whether the current pull-request is a draft."

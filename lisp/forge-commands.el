@@ -658,11 +658,14 @@ With prefix argument MENU, also show the topic menu."
   "Create a new pull-request for the current repository."
   (interactive (nconc (forge-create-pullreq--read-args)
                       (list (forge--read-topic-template 'pullreq))))
-  (forge--setup-post-buffer 'new-pullreq #'forge--submit-create-pullreq
-    "new-pullreq" "Create new pull-request on %p"
-    `((forge--buffer-base-branch ,target)
-      (forge--buffer-head-branch ,source)
-      (forge--buffer-template  ,template))))
+  (let ((repo (forge-get-repository :tracked)))
+    (forge--setup-post-buffer 'new-pullreq #'forge--submit-create-pullreq
+      "new-pullreq" "Create new pull-request on %p"
+      `((forge--buffer-base-branch ,target)
+        (forge--buffer-head-branch ,source)
+        (forge--buffer-template  ,template)
+        ,@(when (forge-gitlab-repository-p repo)
+            `((forge--buffer-remove-source-branch ,forge-gitlab-remove-source-branch-default)))))))
 
 (transient-define-suffix forge-create-pullreq-from-issue (issue source target)
   "Convert an existing ISSUE into a pull-request."

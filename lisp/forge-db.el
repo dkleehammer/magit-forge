@@ -53,7 +53,7 @@
    (object-class :initform 'forge-repository)
    (file         :initform 'forge-database-file)
    (schemata     :initform 'forge--db-table-schemata)
-   (version      :initform 15)))
+   (version      :initform 16)))
 
 (defvar forge--override-connection-class nil)
 
@@ -419,6 +419,7 @@
       base-rev
       head-rev
       draft-p
+      remove-source-branch
       their-id
       slug
       saved-p]
@@ -649,6 +650,8 @@
                      :default nil])
         (emacsql db [:alter-table repository :add-column discussions-until
                      :default nil]))
+    (up 16
+        (emacsql db [:alter-table pullreq :add-column remove-source-branch :default nil]))
     ))
 
 (defun forge--backup-database (db)

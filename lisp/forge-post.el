@@ -63,6 +63,13 @@ exist (or its location is unknown), then this directory is used instead."
   :group 'forge
   :type 'directory)
 
+(defcustom forge-gitlab-remove-source-branch-default nil
+  "Whether to enable \"Delete source branch\" by default for new GitLab merge requests.
+When non-nil, new merge requests will have \"Delete source branch\" enabled
+by default. This only affects GitLab repositories."
+  :group 'forge
+  :type 'boolean)
+
 ;;; Class
 
 (defclass forge-post (forge-object) () :abstract t)
@@ -138,6 +145,7 @@ One of `new-discussion', `new-issue', `new-pullreq', `reply' and `edit'.")
 (defvar-local forge--buffer-base-branch nil)
 (defvar-local forge--buffer-head-branch nil)
 (defvar-local forge--buffer-draft-p nil)
+(defvar-local forge--buffer-remove-source-branch nil)
 
 (defun forge--setup-post-buffer ( obj-or-action submit file header
                                   &optional bindings fn)
@@ -304,13 +312,15 @@ Insert the value of `branch.BRANCH.description' of the source BRANCH."
   "Dispatch a post creation command."
   [["Set"
     :if (lambda ()
-          (and (forge-github-repository-p (forge-get-repository :tracked))
+          (and (or (forge-github-repository-p (forge-get-repository :tracked))
+                   (forge-gitlab-repository-p (forge-get-repository :tracked)))
                (string-prefix-p "new-"
                                 (file-name-nondirectory buffer-file-name))))
     ("-m" forge-new-topic-set-milestone)
     ("-l" forge-new-topic-set-labels)
     ("-a" forge-new-topic-set-assignees)
-    ("-d" forge-new-pullreq-toggle-draft)]
+    ("-d" forge-new-pullreq-toggle-draft)
+    ("-D" forge-new-pullreq-toggle-remove-source-branch)]
    ["Actions"
     ("C-c" "Submit" forge-post-submit)
     ("C-k" "Cancel" forge-post-cancel)]])
@@ -385,6 +395,21 @@ Insert the value of `branch.BRANCH.description' of the source BRANCH."
                                          'transient-value
                                        'transient-inactive-value))))
   :if (lambda () (equal (file-name-nondirectory buffer-file-name) "new-pullreq")))
+
+(transient-define-infix forge-new-pullreq-toggle-remove-source-branch ()
+  "Toggle whether to delete the source branch when the pull-request is merged."
+  :class 'forge--new-topic-set-slot-command
+  :variable 'forge--buffer-remove-source-branch
+  :name "remove-source-branch"
+  :reader (lambda (&rest _) (not forge--buffer-remove-source-branch))
+  :description (lambda ()
+                 (format (propertize "[%s]" 'face 'transient-delimiter)
+                         (propertize "delete source branch" 'face
+                                     (if forge--buffer-remove-source-branch
+                                         'transient-value
+                                       'transient-inactive-value))))
+  :if (lambda () (and (forge-gitlab-repository-p (forge-get-repository :tracked))
+                      (equal (file-name-nondirectory buffer-file-name) "new-pullreq"))))
 
 ;;; Notes
 

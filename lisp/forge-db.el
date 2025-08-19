@@ -53,7 +53,7 @@
    (object-class :initform 'forge-repository)
    (file         :initform 'forge-database-file)
    (schemata     :initform 'forge--db-table-schemata)
-   (version      :initform 15)))
+   (version      :initform 16)))
 
 (defvar forge--override-connection-class nil)
 
@@ -419,6 +419,7 @@
       base-rev
       head-rev
       draft-p
+      remove-source-branch
       their-id
       slug
       saved-p]
@@ -640,7 +641,7 @@
         (emacsql db [:create-table discussion-post $S1]
                  (cdr (assq 'discussion-post forge--db-table-schemata)))
         (emacsql db [:create-table discussion-reply $S1]
-                 (cdr (assq 'discussion-reply forge--db-table-schemata))))
+                 (cdr (assq 'discussion-reply forge--db-table-schemata)))
         (emacsql db [:alter-table repository :add-column discussion-categories
                      :default 'eieio-unbound])
         (emacsql db [:alter-table repository :add-column discussions
@@ -648,7 +649,9 @@
         (emacsql db [:alter-table repository :add-column discussions-p
                      :default nil])
         (emacsql db [:alter-table repository :add-column discussions-until
-                     :default nil])
+                     :default nil]))
+    (up 16
+        (emacsql db [:alter-table pullreq :add-column remove-source-branch :default nil]))
     ))
 
 (defun forge--backup-database (db)

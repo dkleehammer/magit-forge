@@ -517,6 +517,12 @@ Limit list to topics with at least one of the given labels."
                 :initform nil
                 :type (list-of string)
                 :custom (repeat string))
+   (labels-all  :documentation "\
+Limit list to topics with all of the given labels."
+                :initarg :labels-all
+                :initform nil
+                :type (list-of string)
+                :custom (repeat string))
    (marks       :documentation "\
 Limit list to topics with at least one of the given marks.
 Marks are like labels, but they are private and local to the
@@ -624,7 +630,7 @@ Limit list to topics for which a review by the given user was requested."
           (forge-sql (forge--list-topics-2 spec repo type))))
 
 (defun forge--list-topics-2 (spec repo type)
-  (pcase-let (((eieio active state status category milestone labels marks
+  (pcase-let (((eieio active state status category milestone labels labels-all marks
                       saved author assignee reviewer global order limit)
                spec))
     (cond (active
@@ -651,6 +657,25 @@ Limit list to topics for which a review by the given user was requested."
           ('pullreq
            [:join    pullreq-label :on (= pullreq-label:pullreq        topic:id)
             :join            label :on (= label:id             pullreq-label:id)]))
+      ,@(when labels-all
+          (cl-loop for i from 0 below (length labels-all)
+                   for label-alias = (intern (format "label%d" i))
+                   for label-join-alias = (intern (format "%s-label%d"
+                                                         (pcase type
+                                                           ('discussion "discussion")
+                                                           ('issue "issue")
+                                                           ('pullreq "pullreq"))
+                                                         i))
+                   append (pcase type
+                            ('discussion
+                             `[:join (as discussion-label ,label-join-alias) :on (= ,label-join-alias:discussion topic:id)
+                               :join (as label ,label-alias) :on (= ,label-alias:id ,label-join-alias:id)])
+                            ('issue
+                             `[:join (as issue-label ,label-join-alias) :on (= ,label-join-alias:issue topic:id)
+                               :join (as label ,label-alias) :on (= ,label-alias:id ,label-join-alias:id)])
+                            ('pullreq
+                             `[:join (as pullreq-label ,label-join-alias) :on (= ,label-join-alias:pullreq topic:id)
+                               :join (as label ,label-alias) :on (= ,label-alias:id ,label-join-alias:id)]))))
       ,@(pcase (and marks type)
           ('discussion
            [:join discussion-mark :on (= discussion-mark:discussion  topic:id)
@@ -686,6 +711,11 @@ Limit list to topics for which a review by the given user was requested."
           ((and (or 'issue 'pullreq) (guard milestone))
            '((= topic:milestone milestone:id))))
        ,@(and labels    `((or ,@(mapcar (##`(= label:name ,%)) labels))))
+       ,@(when labels-all
+           (cl-loop for i from 0 below (length labels-all)
+                    for label-alias = (intern (format "label%d" i))
+                    for label-name = (nth i labels-all)
+                    collect `(= ,label-alias:name ,label-name)))
        ,@(and marks     `((or ,@(mapcar (##`(=  mark:name ,%))  marks))))
        ,@(and saved     '((= topic:saved-p  't)))
        ,@(and author    `((= topic:author   ,author)))
